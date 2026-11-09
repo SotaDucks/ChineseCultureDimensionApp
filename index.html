@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vespa × 中国文化元素 · Co-creation</title>
+</head>
+<body>
+  <div id="app">
+    <!-- 沉浸页 -->
+    <section id="immersive" class="view">
+      <div class="bg" aria-hidden="true">
+        <div class="layer" data-layer="0"><div class="blur"></div><div class="main"></div></div>
+        <div class="layer" data-layer="1"><div class="blur"></div><div class="main"></div></div>
+      </div>
+      <div class="shade" aria-hidden="true"></div>
+
+      <header class="topbar">
+        <div class="tb-left">
+          <button class="back-cat" data-act="category" id="backCat" title="返回该类别 (Esc)"></button>
+          <div class="brand"><span class="b-1">VESPA</span><span class="b-x">×</span><span class="b-2">中国文化元素</span><span class="b-3">Co-creation Workshop</span></div>
+        </div>
+        <nav class="tools">
+          <button data-act="overview" title="总览 (O)">总览 <i>Overview</i></button>
+          <button data-act="add" title="新增元素">＋ 新增 <i>Add</i></button>
+          <button data-act="edit" title="编辑当前元素的标签 / 标记 / 图片">编辑 <i>Edit</i></button>
+          <button data-act="data" title="导入导出">数据 <i>Data</i></button>
+          <button data-act="fullscreen" title="全屏 (F)">⛶</button>
+        </nav>
+      </header>
+
+      <button class="edge prev" data-act="prev" aria-label="上一个元素"><span>‹</span></button>
+      <button class="edge next" data-act="next" aria-label="下一个元素"><span>›</span></button>
+
+      <footer class="foot">
+        <div class="counter"><b id="idx">01</b> / <span id="count">07</span></div>
+        <div class="credit" id="credit"></div>
+      </footer>
+
+      <aside class="panel">
+        <div class="titles">
+          <h1 class="name-zh" id="nameZh"></h1>
+          <p class="name-en" id="nameEn"></p>
+        </div>
+        <p class="meta" id="meta"></p>
+        <div class="flags" id="flags"></div>
+        <div class="pent-wrap" id="pentHost"></div>
+      </aside>
+    </section>
+
+    <!-- 总览页：类别卡片 / 类别内元素卡片 -->
+    <section id="overview" class="view" hidden>
+      <header class="ov-head">
+        <div>
+          <button class="crumb" data-act="home" id="crumb" hidden>‹ 全部类别 <i>All categories</i></button>
+          <h2 id="ovTitle"></h2>
+          <p class="ov-sub" id="ovSub"></p>
+        </div>
+        <div class="ov-ctrl">
+          <span class="cat-only" id="catCtrl">
+            <select id="fEra"></select>
+            <select id="fRegion"></select>
+            <select id="fTouch"></select>
+            <select id="sort">
+              <option value="default">默认顺序</option>
+              <option value="total">按总分 ↓</option>
+              <option value="area">按面积 ↓</option>
+            </select>
+            <button data-act="add">＋ 新增</button>
+          </span>
+          <button data-act="data">数据</button>
+        </div>
+      </header>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <div class="modal" id="modal" hidden><div class="modal-card" id="modalCard"></div></div>
+    <div class="toast" id="toast"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

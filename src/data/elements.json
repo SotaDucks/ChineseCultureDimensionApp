@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "elements": [
+    {
+      "id": "calligraphy",
+      "nameZh": "书法",
+      "nameEn": "Calligraphy",
+      "category": "arts",
+      "tags": {
+        "era": "古代",
+        "regions": [],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/calligraphy.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center 40%",
+      "imageCredit": "Wang Xianzhi, Tang dynasty copy · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:Wang_Xianzhi_Imitation_by_Tang_Dynasty.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "chinese-knot",
+      "nameZh": "中国结",
+      "nameEn": "Chinese Knot",
+      "category": "symbols",
+      "tags": {
+        "era": "古代",
+        "regions": [],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/chinese-knot.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center 35%",
+      "imageCredit": "Chinese knot, Xijin Ferry, Zhenjiang · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:%E9%95%87%E6%B1%9F%E8%A5%BF%E6%B4%A5%E6%B8%A1%E4%B8%AD%E5%9B%BD%E7%BB%93_-_panoramio.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "sanxingdui-mask",
+      "nameZh": "三星堆青铜纵目面具",
+      "nameEn": "Sanxingdui Bronze Mask with Protruding Pupils",
+      "category": "heritage",
+      "tags": {
+        "era": "古代",
+        "regions": [
+          "西南"
+        ],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/sanxingdui-mask.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center",
+      "imageCredit": "Sanxingdui bronze mask · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:Ancient_Bronze_Mask_from_Sanxingdui_with_Protruding_Eyes_%26_Ears_a.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "mahjong",
+      "nameZh": "麻将",
+      "nameEn": "Mahjong",
+      "category": "everyday",
+      "tags": {
+        "era": "近现代",
+        "regions": [],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/mahjong.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center 30%",
+      "imageCredit": "Hong Kong mahjong tiles · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:HK_Mahjong_Tiles_with_equipment.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "lion-dance",
+      "nameZh": "醒狮",
+      "nameEn": "Cantonese Lion Dance",
+      "category": "festivals",
+      "tags": {
+        "era": "古代",
+        "regions": [
+          "岭南"
+        ],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/lion-dance.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center 30%",
+      "imageCredit": "Lion dance lanterns · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:Lion_dance_art_object.JPG",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "qi-baishi-shrimp",
+      "nameZh": "齐白石的虾",
+      "nameEn": "Qi Baishi's Shrimp",
+      "category": "arts",
+      "tags": {
+        "era": "近现代",
+        "regions": [],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/qi-baishi-shrimp.jpg",
+      "imageFit": "contain",
+      "imagePosition": "center",
+      "imageCredit": "Shrimp after Qi Baishi · Wikimedia Commons（低分辨率，建议替换）",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:QiBaishiGarnelen.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    },
+    {
+      "id": "delivery-rider",
+      "nameZh": "外卖骑手",
+      "nameEn": "Food Delivery Riders",
+      "category": "contemporary",
+      "tags": {
+        "era": "当代",
+        "regions": [],
+        "touchpoints": []
+      },
+      "flags": {
+        "vespaUsed": false,
+        "culturallySensitive": false
+      },
+      "image": "images/delivery-rider.jpg",
+      "imageFit": "cover",
+      "imagePosition": "center",
+      "imageCredit": "Meituan & Ele.me riders, Yanji · Wikimedia Commons",
+      "imageSource": "https://commons.wikimedia.org/wiki/File:Two_Meituan_and_Eleme_food_delivery_workers_in_Yanji_20240428161440.jpg",
+      "scores": {
+        "influence": 0,
+        "resonance": 0,
+        "novelty": 0,
+        "brandFit": 0,
+        "translatability": 0
+      },
+      "notes": ""
+    }
+  ]
+}
