@@ -28,13 +28,25 @@ const pent = new Pentagon($('#pentHost'), {
   onHover: (i) => { state.hover = i; renderQuestion(); },
 });
 
-function setScore(i, s) {
+let scoreSave = 0;
+async function setScore(i, s) {
   const e = current();
   if (!e) return;
-  store.setScore(e.id, DIMENSIONS[i].key, s);
-  pent.setScores(scoreArray(e));
-  renderTotals();
-  renderQuestion();
+  const save = ++scoreSave;
+  const scores = [...pent.scores];
+  scores[i] = s;
+  pent.setScores(scores);
+  try {
+    await store.setScore(e.id, DIMENSIONS[i].key, s);
+  } catch (err) {
+    toast('分数未保存：' + err.message);
+  } finally {
+    if (save === scoreSave && current()?.id === e.id) {
+      pent.setScores(scoreArray(current()));
+      renderTotals();
+      renderQuestion();
+    }
+  }
 }
 
 // ---------- 渲染：沉浸页 ----------
@@ -140,13 +152,18 @@ function renderQuestion() {
 }
 
 function autoGrow(t) { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
-let notesTimer;
+const notesTimers = new Map();
 $('#notes')?.addEventListener('input', (ev) => {
   autoGrow(ev.target);
-  clearTimeout(notesTimer);
-  const id = current().id;
+  const id = current()?.id;
+  if (!id) return;
+  clearTimeout(notesTimers.get(id));
   const val = ev.target.value;
-  notesTimer = setTimeout(() => { const e = store.get(id); if (e) { e.notes = val; store.save(); } }, 300);
+  notesTimers.set(id, setTimeout(async () => {
+    notesTimers.delete(id);
+    try { await store.setNotes(id, val); }
+    catch (err) { toast('备注未保存：' + err.message); }
+  }, 300));
 });
 
 function go(delta) {
@@ -292,7 +309,7 @@ async function downscale(file, maxW = 1280) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const k = Math.min(1, maxW / img.naturalWidth);
+    const k = Math.min(1, maxW / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k);
     c.height = Math.round(img.naturalHeight * k);
@@ -340,7 +357,7 @@ function elementForm(e) {
       </fieldset>
       <label>备注 Notes<textarea name="notes" rows="2">${esc(e.notes)}</textarea></label>
       <div class="actions">
-        ${isNew ? '' : '<button type="button" class="danger" id="delBtn">删除</button>'}
+        ${isNew || store.shared ? '' : '<button type="button" class="danger" id="delBtn">删除</button>'}
         <span class="sp"></span>
         <button type="button" id="cancelBtn">取消</button>
         <button type="submit" class="primary">${isNew ? '添加并打开' : '保存'}</button>
@@ -348,12 +365,21 @@ function elementForm(e) {
     </form>`, (root) => {
     let dataUrl = e.image && e.image.startsWith('data:') ? e.image : '';
     const prev = $('#imgPrev', root);
+    const submit = $('button[type="submit"]', root);
     $('#imgFile', root).addEventListener('change', async (ev) => {
       const f = ev.target.files[0];
       if (!f) return;
-      dataUrl = await downscale(f);
-      $('#imgUrl', root).value = '';
-      prev.style.backgroundImage = `url("${dataUrl}")`;
+      const input = ev.target;
+      submit.disabled = input.disabled = true;
+      try {
+        dataUrl = await downscale(f);
+        $('#imgUrl', root).value = '';
+        prev.style.backgroundImage = `url("${dataUrl}")`;
+      } catch {
+        toast('图片读取失败，请重新选择');
+      } finally {
+        submit.disabled = input.disabled = false;
+      }
     });
     $('#imgUrl', root).addEventListener('input', (ev) => {
       if (ev.target.value) { dataUrl = ''; prev.style.backgroundImage = `url("${ev.target.value.replace(/"/g, '%22')}")`; }
@@ -367,8 +393,9 @@ function elementForm(e) {
       state.index = Math.min(state.index, store.elements.length - 1);
       state.view === 'overview' ? renderOverview() : renderElement(true);
     };
-    $('#elForm', root).addEventListener('submit', (ev) => {
+    $('#elForm', root).addEventListener('submit', async (ev) => {
       ev.preventDefault();
+      if (submit.disabled) return;
       const fd = new FormData(ev.target);
       const extra = String(fd.get('regionsExtra') || '').split(/[、,，\s]+/).map((s) => s.trim()).filter(Boolean);
       const next = {
@@ -385,10 +412,18 @@ function elementForm(e) {
         notes: fd.get('notes'),
         author: e.author || store.group,
       };
-      const saved = store.upsert(next);
-      closeModal();
-      toast(isNew ? '已添加' : '已保存');
-      openElement(saved.id);
+      submit.disabled = true;
+      try {
+        const saved = await store.upsert(next, isNew ? null : e);
+        if (!submit.isConnected) return;
+        closeModal();
+        toast(store.shared ? '已保存到共享数据' : isNew ? '已添加' : '已保存');
+        openElement(saved.id);
+      } catch (err) {
+        toast('保存失败：' + err.message);
+      } finally {
+        submit.disabled = false;
+      }
     });
     $('input[name="nameZh"]', root).focus();
   });
@@ -409,46 +444,46 @@ function dataPanel() {
   openModal(`
     <div class="form">
       <h3>数据 <i>Data</i></h3>
-      <p class="muted">打分会自动保存在本浏览器（localStorage）。工作坊结束后请每个小组导出一份，方便汇总。</p>
+      <p class="muted">${store.shared ? '新增、编辑和打分会保存到共享数据库。所有访客都可以编辑，重新打开页面即可读取最新数据。导入 JSON 也会更新共享数据。' : '打分会自动保存在本浏览器（localStorage）。工作坊结束后请每个小组导出一份，方便汇总。'}</p>
       <label>小组 / 评分人 Group<input id="groupIn" value="${esc(store.group)}" placeholder="如：第 3 组"/></label>
       <div class="btns">
         <button id="exJson" class="primary">导出 JSON</button>
         <button id="exCsv">导出 CSV（Excel）</button>
         <label class="file btn">导入 JSON（可多选）<input type="file" multiple accept=".json,application/json" id="imJson"/></label>
       </div>
-      <div class="btns">
+      ${store.shared ? '' : `<div class="btns">
         <button id="exMine" class="primary">提交我新增的元素（${store.mine().length} 个）</button>
       </div>
-      <p class="muted small">「提交」会下载一个只含你新增元素（含图片）的小文件，发给老师即可。老师可一次多选导入所有同学的文件，汇总后放进 public/data/shared.json 重新部署，大家就都能看到。导入按 id 合并，新增元素的 id 自带随机后缀，不会互相覆盖。</p>
-      <div class="actions"><button class="danger" id="resetBtn">重置为预置数据</button><span class="sp"></span><button id="closeBtn">完成</button></div>
+      <p class="muted small">「提交」会下载一个只含你新增元素（含图片）的小文件，发给老师即可。老师可一次多选导入所有同学的文件，汇总后放进 public/data/shared.json 重新部署，大家就都能看到。导入按 id 合并，新增元素的 id 自带随机后缀，不会互相覆盖。</p>`}
+      <div class="actions">${store.shared ? '' : '<button class="danger" id="resetBtn">重置为预置数据</button>'}<span class="sp"></span><button id="closeBtn">完成</button></div>
     </div>`, (root) => {
     $('#groupIn', root).addEventListener('input', (ev) => { store.group = ev.target.value.trim(); store.save(); });
     $('#exJson', root).onclick = () => { download(fileBase() + '.json', store.exportJSON(), 'application/json'); toast('已导出 JSON'); };
     $('#exCsv', root).onclick = () => { download(fileBase() + '.csv', store.exportCSV(), 'text/csv;charset=utf-8'); toast('已导出 CSV'); };
-    $('#exMine', root).onclick = () => {
+    $('#exMine', root)?.addEventListener('click', () => {
       if (!store.mine().length) return alert('你还没有新增元素。先点「＋ 新增」添加几个吧。');
       download(fileBase().replace('culture-scores', 'culture-contrib') + '.json', store.exportMine(), 'application/json');
       toast('已下载，请发给老师');
-    };
+    });
     $('#imJson', root).addEventListener('change', async (ev) => {
       const files = [...ev.target.files];
       if (!files.length) return;
       try {
         let added = 0, updated = 0;
-        for (const f of files) { const r = store.importJSON(await f.text()); added += r.added; updated += r.updated; }
+        for (const f of files) { const r = await store.importJSON(await f.text()); added += r.added; updated += r.updated; }
         toast(`导入完成：新增 ${added}，更新 ${updated}`);
         closeModal();
         state.view === 'overview' ? (fillFilters(), renderOverview()) : renderElement(true);
       } catch (err) { alert('导入失败：' + err.message); }
     });
-    $('#resetBtn', root).onclick = () => {
+    $('#resetBtn', root)?.addEventListener('click', () => {
       if (!confirm('将清除本浏览器里所有打分、备注和新增元素，恢复预置的 7 个元素。确定吗？（建议先导出 JSON 备份）')) return;
       store.reset();
       state.index = 0;
       closeModal();
       state.view === 'overview' ? renderOverview() : renderElement(true);
       toast('已重置');
-    };
+    });
     $('#closeBtn', root).onclick = closeModal;
   });
 }
@@ -545,4 +580,8 @@ pent.setActive(0);
 // 打开网页时总是先进入总览（类别卡片）
 showView('overview');
 // 加载老师发布的共享素材库（没有该文件时静默忽略）
-store.loadShared().then((n) => { if (n && state.view === 'overview') { fillFilters(); renderOverview(); } });
+store.loadShared().then((n) => {
+  if (!n) return;
+  if (state.view === 'overview') { fillFilters(); renderOverview(); }
+  else renderElement(true);
+}).catch((err) => toast('共享数据未能加载：' + err.message));

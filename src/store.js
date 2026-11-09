@@ -2,6 +2,7 @@
 import base from './data/elements.json';
 import { DIMENSIONS, CATEGORIES, CATEGORY_ALIASES, TOUCHPOINTS, catByKey } from './config.js';
 import { areaRatio } from './pentagon.js';
+import { sharedEnabled, readSharedEdits, writeSharedEdits } from './shared.js';
 
 const KEY = 'vespa-cn-culture:v1';
 // 已彻底删除的预置元素：旧的 localStorage、共享库、导入文件里出现也会被丢弃
@@ -9,15 +10,22 @@ const KEY = 'vespa-cn-culture:v1';
 const REMOVED_IDS = new Set(['jade']);
 const REPLACED_BY = { jade: 'chinese-knot' };
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const strings = (v) => Array.isArray(v) ? v.filter((s) => typeof s === 'string') : [];
+const safeImage = (v) => typeof v === 'string'
+  && !/["\\\r\n]/.test(v)
+  && (/^(https?:\/\/|(?:\.\/)?images\/)/i.test(v)
+    || /^data:image\/(?:jpeg|png|webp|gif);base64,[\w+/=]+$/i.test(v)) ? v : '';
 
 export function normalize(raw) {
-  const e = clone(raw || {});
+  const e = raw && typeof raw === 'object' && !Array.isArray(raw) ? clone(raw) : {};
   e.id = String(e.id || '').trim() || 'el-' + Date.now().toString(36);
   e.nameZh = e.nameZh || '';
   e.nameEn = e.nameEn || '';
-  if (CATEGORY_ALIASES[e.category]) e.category = CATEGORY_ALIASES[e.category];
+  if (typeof e.category === 'string' && Object.hasOwn(CATEGORY_ALIASES, e.category)) e.category = CATEGORY_ALIASES[e.category];
   e.category = CATEGORIES.some((c) => c.key === e.category) ? e.category : CATEGORIES[0].key;
   e.tags = { era: '', regions: [], touchpoints: [], ...(e.tags || {}) };
+  e.tags.regions = strings(e.tags.regions);
+  e.tags.touchpoints = strings(e.tags.touchpoints);
   e.flags = { vespaUsed: false, culturallySensitive: false, ...(e.flags || {}) };
   e.image = e.image || '';
   e.imageFit = e.imageFit === 'contain' ? 'contain' : 'cover';
@@ -27,7 +35,10 @@ export function normalize(raw) {
   e.notes = e.notes || '';
   return e;
 }
-const clampScore = (v) => Math.max(0, Math.min(5, Math.round(Number(v) || 0)));
+const clampScore = (v) => {
+  const number = typeof v === 'number' || typeof v === 'string' ? Number(v) : 0;
+  return Math.max(0, Math.min(5, Math.round(number || 0)));
+};
 
 export const scoreArray = (e) => DIMENSIONS.map((d) => e.scores[d.key] || 0);
 export const total = (e) => scoreArray(e).reduce((a, b) => a + b, 0);
@@ -35,13 +46,15 @@ export const area = (e) => areaRatio(scoreArray(e));
 
 class Store {
   constructor() {
+    this.shared = sharedEnabled;
+    this.writeQueue = Promise.resolve();
     this.group = '';
     this.deleted = [];
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch {}
     const baseEls = base.elements.map(normalize);
-    if (saved && Array.isArray(saved.elements)) {
-      this.group = saved.group || '';
+    this.group = saved?.group || '';
+    if (!this.shared && saved && Array.isArray(saved.elements)) {
       this.deleted = saved.deleted || [];
       // 早期版本里书法存为 symbols（旧的「符号与纹样」），现属艺术与文学
       for (const e of saved.elements) if (e && e.id === 'calligraphy' && e.category === 'symbols') e.category = 'arts';
@@ -62,6 +75,10 @@ class Store {
   }
   save() {
     try {
+      if (this.shared) {
+        localStorage.setItem(KEY + ':shared-group', this.group);
+        return true;
+      }
       localStorage.setItem(KEY, JSON.stringify({ group: this.group, deleted: this.deleted, elements: this.elements, savedAt: new Date().toISOString() }));
       return true;
     } catch (err) {
@@ -70,9 +87,30 @@ class Store {
     }
   }
   get(id) { return this.elements.find((e) => e.id === id); }
-  setScore(id, key, v) { const e = this.get(id); if (!e) return; e.scores[key] = clampScore(v); this.save(); }
-  upsert(raw) {
+  async setScore(id, key, v) {
+    const e = this.get(id);
+    if (!e) return;
+    const score = clampScore(v);
+    if (this.shared) return this.commitShared([{ id, fields: { scores: { [key]: score } } }]);
+    e.scores[key] = score;
+    this.save();
+  }
+  async setNotes(id, notes) {
+    const e = this.get(id);
+    if (!e) return;
+    if (this.shared) return this.commitShared([{ id, fields: { notes } }]);
+    e.notes = notes;
+    this.save();
+  }
+  async upsert(raw, original) {
     const e = normalize(raw);
+    if (this.shared) {
+      const before = original && normalize(original);
+      const fields = Object.fromEntries(Object.entries(e).filter(([key, value]) =>
+        key !== 'id' && (!before || JSON.stringify(before[key]) !== JSON.stringify(value))));
+      if (Object.keys(fields).length) await this.commitShared([{ id: e.id, fields }]);
+      return this.get(e.id);
+    }
     const i = this.elements.findIndex((x) => x.id === e.id);
     if (i >= 0) this.elements[i] = e; else this.elements.push(e);
     this.deleted = this.deleted.filter((d) => d !== e.id);
@@ -101,6 +139,38 @@ class Store {
   // ---------- 共享素材库（无后端）----------
   // 老师把汇总后的 JSON 放到 public/data/shared.json 并重新部署，所有人打开网页就能看到大家新增的元素。
   async loadShared() {
+    if (this.shared) {
+      try { this.group = localStorage.getItem(KEY + ':shared-group') ?? this.group; } catch {}
+    }
+    const count = await this.loadStaticLibrary();
+    if (!this.shared) return count;
+    const rows = await readSharedEdits();
+    for (const row of rows) this.applySharedEdit(row);
+    this.sharedReady = true;
+    return count + rows.length;
+  }
+  applySharedEdit({ id, fields }) {
+    const i = this.elements.findIndex((e) => e.id === id);
+    const current = this.elements[i];
+    const e = normalize({ ...current, ...fields, id, scores: { ...current?.scores, ...fields.scores } });
+    e.image = safeImage(e.image);
+    if (typeof e.imagePosition !== 'string' || !/^[\w.%\s-]+$/.test(e.imagePosition)) e.imagePosition = 'center';
+    for (const key of ['nameZh', 'nameEn', 'notes', 'imageCredit', 'author']) {
+      if (typeof e[key] !== 'string') e[key] = '';
+    }
+    if (i === -1) this.elements.push(e);
+    else this.elements[i] = e;
+  }
+  commitShared(changes) {
+    const pending = this.writeQueue.then(async () => {
+      if (!this.sharedReady) throw new Error('共享数据尚未加载，请刷新页面后重试');
+      const rows = await writeSharedEdits(changes);
+      for (const row of rows) this.applySharedEdit(row);
+    });
+    this.writeQueue = pending.catch(() => {});
+    return pending;
+  }
+  async loadStaticLibrary() {
     try {
       const res = await fetch(new URL('data/shared.json?t=' + Date.now(), document.baseURI));
       if (!res.ok) return 0;
@@ -137,11 +207,25 @@ class Store {
       elements: this.elements,
     }, null, 2);
   }
-  importJSON(text) {
+  async importJSON(text) {
     const data = JSON.parse(text);
     const list = Array.isArray(data) ? data : data.elements;
     if (!Array.isArray(list)) throw new Error('文件里没有 elements 数组');
     let added = 0, updated = 0;
+    if (this.shared) {
+      const changes = new Map();
+      for (const raw of list) {
+        if (raw && REMOVED_IDS.has(raw.id)) continue;
+        const { id, ...fields } = normalize(raw);
+        changes.set(id, { id, fields });
+      }
+      for (const id of changes.keys()) {
+        if (this.get(id)) updated++;
+        else added++;
+      }
+      if (changes.size) await this.commitShared([...changes.values()]);
+      return { added, updated };
+    }
     for (const raw of list) {
       if (raw && REMOVED_IDS.has(raw.id)) continue;
       const e = normalize(raw);
