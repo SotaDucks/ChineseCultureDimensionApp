@@ -33,12 +33,12 @@ npm run preview    # 本地预览 dist/
 
 ## Supabase 共享编辑
 
-在目标 Supabase 项目中，通过 SQL Editor 执行 [数据库迁移](supabase/migrations/20261109000000_shared_elements.sql) 一次。仓库中的 `.env` 包含工作坊项目的公开配置。若要换项目，可以在本地的 `.env.local` 或部署平台的构建环境中覆盖：
+在目标 Supabase 项目中，通过 SQL Editor 按顺序执行[共享编辑迁移](supabase/migrations/20261109000000_shared_elements.sql)和[共享删除迁移](supabase/migrations/20261109151000_shared_deletions.sql)，每项执行一次。仓库中的 `.env` 包含工作坊项目的公开配置。若要换项目，可以在本地的 `.env.local` 或部署平台的构建环境中覆盖：
 
 - `VITE_SUPABASE_URL`，Supabase 的 Project URL。
 - `VITE_SUPABASE_PUBLISHABLE_KEY`，项目的 Publishable key，也可使用旧版公开的 anon key。
 
-配置完成后重新构建并部署网站。所有访客都可以直接新增、编辑、打分和保存备注。保存由数据库确认，其他访客刷新后即可读到更新。上传的压缩图片随元素一同保存。共享模式关闭删除和全站重置，支持通过「数据」导入原有 JSON，导入会按 ID 更新共享记录。启用共享前保留在浏览器里的记录可先导出，确认需要发布的内容后再导入。
+配置完成后重新构建并部署网站。所有访客都可以直接新增、编辑、删除、打分和保存备注。保存和删除由数据库确认，其他访客刷新后即可读到更新。上传的压缩图片随元素一同保存。删除会移除该元素的共享记录，数据库会保留该 ID 的删除标记，防止旧页面或导入文件恢复该记录。共享模式关闭全站重置，支持通过「数据」导入原有 JSON，导入会按 ID 更新共享记录。启用共享前保留在浏览器里的记录可先导出，确认需要发布的内容后再导入。
 
 ## 同学上传更多文化元素（两项 Supabase 配置均为空时）
 

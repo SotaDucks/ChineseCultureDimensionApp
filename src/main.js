@@ -357,7 +357,7 @@ function elementForm(e) {
       </fieldset>
       <label>备注 Notes<textarea name="notes" rows="2">${esc(e.notes)}</textarea></label>
       <div class="actions">
-        ${isNew || store.shared ? '' : '<button type="button" class="danger" id="delBtn">删除</button>'}
+        ${isNew ? '' : '<button type="button" class="danger" id="delBtn">删除</button>'}
         <span class="sp"></span>
         <button type="button" id="cancelBtn">取消</button>
         <button type="submit" class="primary">${isNew ? '添加并打开' : '保存'}</button>
@@ -366,9 +366,10 @@ function elementForm(e) {
     let dataUrl = e.image && e.image.startsWith('data:') ? e.image : '';
     const prev = $('#imgPrev', root);
     const submit = $('button[type="submit"]', root);
-    $('#imgFile', root).addEventListener('change', async (ev) => {
+    const imageFile = $('#imgFile', root);
+    imageFile.addEventListener('change', async (ev) => {
       const f = ev.target.files[0];
-      if (!f) return;
+      if (!f || submit.disabled) return;
       const input = ev.target;
       submit.disabled = input.disabled = true;
       try {
@@ -386,12 +387,23 @@ function elementForm(e) {
     });
     $('#cancelBtn', root).onclick = closeModal;
     const del = $('#delBtn', root);
-    if (del) del.onclick = () => {
-      if (!confirm(`确定删除「${e.nameZh}」？它的打分也会一起删除（建议先导出 JSON 备份）。`)) return;
-      store.remove(e.id);
-      closeModal();
-      state.index = Math.min(state.index, store.elements.length - 1);
-      state.view === 'overview' ? renderOverview() : renderElement(true);
+    if (del) del.onclick = async () => {
+      if (submit.disabled) return;
+      const scope = store.shared ? '从共享数据中' : '';
+      if (!confirm(`确定${scope}删除「${e.nameZh}」？它的打分也会一起删除。`)) return;
+      submit.disabled = del.disabled = imageFile.disabled = true;
+      try {
+        await store.remove(e.id);
+        if (del.isConnected) closeModal();
+        state.index = Math.max(0, Math.min(state.index, store.elements.length - 1));
+        if (state.view === 'overview' || !store.elements.length) showView('overview');
+        else renderElement(true);
+        toast(store.shared ? '已从共享数据中删除' : '已删除');
+      } catch (err) {
+        toast('删除失败：' + err.message);
+      } finally {
+        submit.disabled = del.disabled = imageFile.disabled = false;
+      }
     };
     $('#elForm', root).addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -412,7 +424,7 @@ function elementForm(e) {
         notes: fd.get('notes'),
         author: e.author || store.group,
       };
-      submit.disabled = true;
+      submit.disabled = imageFile.disabled = true;
       try {
         const saved = await store.upsert(next, isNew ? null : e);
         if (!submit.isConnected) return;
@@ -422,7 +434,7 @@ function elementForm(e) {
       } catch (err) {
         toast('保存失败：' + err.message);
       } finally {
-        submit.disabled = false;
+        submit.disabled = imageFile.disabled = false;
       }
     });
     $('input[name="nameZh"]', root).focus();

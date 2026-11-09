@@ -2,7 +2,7 @@
 import base from './data/elements.json';
 import { DIMENSIONS, CATEGORIES, CATEGORY_ALIASES, TOUCHPOINTS, catByKey } from './config.js';
 import { areaRatio } from './pentagon.js';
-import { sharedEnabled, readSharedEdits, writeSharedEdits } from './shared.js';
+import { sharedEnabled, readSharedEdits, readSharedDeletions, writeSharedEdits, deleteSharedElement } from './shared.js';
 
 const KEY = 'vespa-cn-culture:v1';
 // 已彻底删除的预置元素：旧的 localStorage、共享库、导入文件里出现也会被丢弃
@@ -118,8 +118,17 @@ class Store {
     return e;
   }
   remove(id) {
-    this.elements = this.elements.filter((e) => e.id !== id);
-    if (!this.deleted.includes(id)) this.deleted.push(id);
+    const removeFromList = () => {
+      this.elements = this.elements.filter((e) => e.id !== id);
+      if (!this.deleted.includes(id)) this.deleted.push(id);
+    };
+    if (this.shared) {
+      return this.queueSharedWrite(async () => {
+        await deleteSharedElement(id);
+        removeFromList();
+      });
+    }
+    removeFromList();
     this.save();
   }
   reset() {
@@ -132,7 +141,7 @@ class Store {
   uniqueId(seed) {
     const id = (seed || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'element';
     let k;
-    do { k = `${id}-${Math.random().toString(36).slice(2, 6)}`; } while (this.get(k));
+    do { k = `${id}-${Math.random().toString(36).slice(2, 6)}`; } while (this.get(k) || this.deleted.includes(k));
     return k;
   }
 
@@ -145,9 +154,14 @@ class Store {
     const count = await this.loadStaticLibrary();
     if (!this.shared) return count;
     const rows = await readSharedEdits();
-    for (const row of rows) this.applySharedEdit(row);
+    const deleted = new Set((await readSharedDeletions()).map(({ id }) => id));
+    for (const row of rows) {
+      if (!deleted.has(row.id)) this.applySharedEdit(row);
+    }
+    this.deleted = [...deleted];
+    this.elements = this.elements.filter((e) => !deleted.has(e.id));
     this.sharedReady = true;
-    return count + rows.length;
+    return count + rows.length + deleted.size;
   }
   applySharedEdit({ id, fields }) {
     const i = this.elements.findIndex((e) => e.id === id);
@@ -162,10 +176,15 @@ class Store {
     else this.elements[i] = e;
   }
   commitShared(changes) {
-    const pending = this.writeQueue.then(async () => {
-      if (!this.sharedReady) throw new Error('共享数据尚未加载，请刷新页面后重试');
+    return this.queueSharedWrite(async () => {
       const rows = await writeSharedEdits(changes);
       for (const row of rows) this.applySharedEdit(row);
+    });
+  }
+  queueSharedWrite(write) {
+    const pending = this.writeQueue.then(() => {
+      if (!this.sharedReady) throw new Error('共享数据尚未加载，请刷新页面后重试');
+      return write();
     });
     this.writeQueue = pending.catch(() => {});
     return pending;
